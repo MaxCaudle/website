@@ -25,9 +25,16 @@ class Database:
         with open(self.config_file, 'r') as infile:
             self.data = json.load(infile)
 
+        self.host = os.environ.get('DB_HOST', self.data.get('host', 'localhost'))
+        self.port = int(os.environ.get('DB_PORT', self.data.get('port', 5432)))
+        self.user = os.environ.get('DB_USER', self.data.get('database_user', 'postgres'))
+        self.password = os.environ.get('DB_PASSWORD', self.data.get('database_password', ''))
+        self.dbname = os.environ.get('DB_NAME', self.data.get('server_name', 'baking'))
+
         # Scheme: "postgres+psycopg2://<USERNAME>:<PASSWORD>@<IP_ADDRESS>:<PORT>/<DATABASE_NAME>"
-        self.DATABASE_URI = f"postgres+psycopg2://postgres:{self.data['database_password']}" + \
-                            f"@localhost:{self.data['port']}/{self.data['server_name']}"
+        self.DATABASE_URI = (
+            f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.dbname}"
+        )
 
     def get_session(self):
         """ This safely makes a sqlalchemy connection engine and a Session instance. The Session isn't fully formed,
@@ -38,9 +45,10 @@ class Database:
     def create_database(self, dbname):
         """ This will make a new database, to help with setup."""
 
-        con = psycopg2.connect(user=self.data['database_user'],
-                               host='',
-                               password=self.data['database_password'])
+        con = psycopg2.connect(user=self.user,
+                               host=self.host or None,
+                               password=self.password,
+                               port=self.port)
         con.autocommit = True
         cur = con.cursor()
 
@@ -60,9 +68,10 @@ class Database:
             want to further customize the emails later."""
 
         con = psycopg2.connect(dbname=dbname,
-                               user=self.data['database_user'],
-                               host='',
-                               password=self.data['database_password'])
+                               user=self.user,
+                               host=self.host or None,
+                               password=self.password,
+                               port=self.port)
         con.autocommit = True
         cur = con.cursor()
 
@@ -178,10 +187,11 @@ class Database:
 
     def make_query_con(self):
         if not self.con:
-            self.con = psycopg2.connect(dbname='baking',
-                                        user=self.data['database_user'],
-                                        host='',
-                                        password=self.data['database_password'])
+            self.con = psycopg2.connect(dbname=self.dbname,
+                                        user=self.user,
+                                        host=self.host or None,
+                                        port=self.port,
+                                        password=self.password)
 
     def food_name_from_id(self, food_id):
         self.make_query_con()
